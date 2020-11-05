@@ -1,5 +1,5 @@
 [package]
-name = "first_try"
+name = "over_the_stars"
 version = "0.1.0"
 authors = ["Gwennan Eliezer <naeiogalaxy@gmail.com>"]
 edition = "2018"
@@ -7,5 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+rand = "0.7.3"
 sdl2 = "0.34.3"
-# vek = { version = "0.10.0", default-features = false, features = ["libm"] }
+sdl2-sys = "0.34.3"
+vek = { version = "0.10.0", default-features = false, features = ["libm"] }
