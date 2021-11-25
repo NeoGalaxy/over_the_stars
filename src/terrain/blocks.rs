@@ -12,10 +12,10 @@ pub const BLOCK_SIZE: u32 = 16;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Block {
-	block : &'static BlockType,
-	wall : &'static BlockType,
-	light : i32,
-	break_progress : u32
+	pub block : &'static BlockType,
+	pub wall : &'static BlockType,
+	pub light : i32,
+	pub break_progress : u32
 }
 
 impl Default for Block {

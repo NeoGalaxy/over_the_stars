@@ -15,35 +15,27 @@ use vek::vec::repr_c::vec2::Vec2;
 
 use std::time::{Instant};
 
-use terrain::{map::Map};
+use terrain::{
+	map::{
+		Map,
+		Interaction
+	}
+};
+use entities::{player::Player};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-enum Action {
-	Up,
-	Down,
-	Left,
-	Right,
-}
-
-//#![allow(unused)]
+// #![allow(unused)]
 fn main() {
+	let mut key_mapping : HashMap<Keycode, Interaction> =
+	[(Keycode::Z, Interaction::Up),
+	 (Keycode::S, Interaction::Down),
+	 (Keycode::Q, Interaction::Left),
+	 (Keycode::D, Interaction::Right)]
+	 .iter().cloned().collect();
+	let mut action_active : [bool; 4] = [false, false, false, false];
+
 	let mut map = Map::new();
-	let mut key_mapping : HashMap<Keycode, Action> =
-	[(Keycode::Up, Action::Up),
-	 (Keycode::Down, Action::Down),
-	 (Keycode::Left, Action::Left),
-	 (Keycode::Right, Action::Right),
-	 (Keycode::Z, Action::Up),
-	 (Keycode::S, Action::Down),
-	 (Keycode::Q, Action::Left),
-	 (Keycode::D, Action::Right)]
-	 .iter().cloned().collect();
-	let mut action_active : HashMap<Action, bool> =
-	[(Action::Up, false),
-	 (Action::Down, false),
-	 (Action::Left, false),
-	 (Action::Right, false)]
-	 .iter().cloned().collect();
+	let player_id = Player::create(Vec2::new(0.,-15.0), &mut map);
+	map.set_interacter(player_id);
 	let sdl_context = sdl2::init().unwrap();
 	let video_subsystem = sdl_context.video().unwrap();
  
@@ -56,12 +48,15 @@ fn main() {
 	canvas.set_draw_color(Color::RGB(0, 255, 255));
 	canvas.clear();
 	let mut pos = Vec2::new(0.,0.);
-	map.disp(&mut canvas, &pos);
+	{
+		//let pos = map.see_entity(player_id).get_pos();
+		map.disp(&mut canvas, &pos);
+	}
 	canvas.present();
 	let mut event_pump = sdl_context.event_pump().unwrap();
 	let mut last = Instant::now();
 	let mut intervall;
-	let mut cnt = 0;
+	//let mut cnt = 0;
 	'running: loop {
 		for event in event_pump.poll_iter() {
 			match event {
@@ -71,16 +66,28 @@ fn main() {
 					break 'running
 				},
 				Event::KeyDown { keycode: Some(code), .. } => {
-					if let Some(action) = key_mapping.get_mut(&code) {
-						if !action_active.get(action).unwrap() {
-							*action_active.get_mut(action).unwrap() = true;
+					match code {
+						Keycode::Up => {action_active[0] = true;}
+						Keycode::Down => {action_active[1] = true;}
+						Keycode::Left => {action_active[2] = true;}
+						Keycode::Right => {action_active[3] = true;},
+						_ => {
+							if let Some(interaction) = key_mapping.get_mut(&code) {
+								map.interact(*interaction, true);
+							}
 						}
 					}
 				},
 				Event::KeyUp { keycode: Some(code), .. } => {
-					if let Some(action) = key_mapping.get_mut(&code) {
-						if *action_active.get(action).unwrap() {
-							*action_active.get_mut(action).unwrap() = false;
+					match code {
+						Keycode::Up => {action_active[0] = false;}
+						Keycode::Down => {action_active[1] = false;}
+						Keycode::Left => {action_active[2] = false;}
+						Keycode::Right => {action_active[3] = false;},
+						_ => {
+							if let Some(interaction) = key_mapping.get_mut(&code) {
+								map.interact(*interaction, false);
+							}
 						}
 					}
 				},
@@ -88,30 +95,27 @@ fn main() {
 			}
 		}
 		intervall = last.elapsed().as_secs_f64();
-		last = Instant::now();
-		cnt += 1;
-		if cnt >= 5 {
-			cnt = 0;
-		
-			print!("\u{001b}[0K{}\t{:?}\r", 1./intervall, pos);
-			std::io::stdout().flush().expect("Hmmm......");
-		}
+		last = Instant::now();		
 		let speed = 15.;
-		if action_active[&Action::Up] {
+		if action_active[0] {
 			pos.y -= speed * intervall;
 		}
-		if action_active[&Action::Down] {
+		if action_active[1] {
 			pos.y += speed * intervall;
 		}
-		if action_active[&Action::Left] {
+		if action_active[2] {
 			pos.x -= speed * intervall;
 		}
-		if action_active[&Action::Right] {
+		if action_active[3] {
 			pos.x += speed * intervall;
 		}
+		map.update_active();
 		canvas.set_draw_color(Color::RGB(0, 255, 255));
 		canvas.clear();
-		map.disp(&mut canvas, &pos);
+		{
+			//let pos = map.see_entity(player_id).get_pos();
+			map.disp(&mut canvas, &pos);
+		}
 		canvas.present();
 	}
 }

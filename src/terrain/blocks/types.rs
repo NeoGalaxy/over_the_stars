@@ -14,9 +14,8 @@ pub struct BlockType {
 	//pub outline: Color,
 }
 
-pub const BLOCK_TYPES: [BlockType; 5] = [
-	BlockType{name: "void",
-		id: 0,
+pub const BLOCK_TYPES: [BlockType; 8] = [
+	BlockType{name: "void", id: 0,
 		hp: None,
 		hardness: 0,
 		light_level: -1,
@@ -48,6 +47,25 @@ pub const BLOCK_TYPES: [BlockType; 5] = [
 		is_solid: true, can_fall: false,
 		texture: Some(Color::RGB(187,170,51))
 	},
+	BlockType{name: "gold_ore", id: 4,
+		hp: Some(15), hardness : 15,
+		light_level: -2,
+		is_solid: true, can_fall: false,
+		texture: Some(Color::RGB(255,255,255))
+	},
+	BlockType{name: "gold_ore", id: 4,
+		hp: Some(15), hardness : 15,
+		light_level: -2,
+		is_solid: true, can_fall: false,
+		texture: Some(Color::RGB(0,0,0))
+	},
+		BlockType{name: "gold_ore", id: 4,
+		hp: Some(15), hardness : 15,
+		light_level: -2,
+		is_solid: true, can_fall: false,
+		texture: Some(Color::RGB(123,214,83))
+	},
+
 ];
 
 impl Default for &BlockType {

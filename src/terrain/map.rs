@@ -3,63 +3,103 @@ extern crate vek;
 
 mod chunk_gen;
 
-//use std::io::Write;
+use sdl2::video::Window;
+
 use std::{
 	collections::HashMap,
 	vec::Vec,
 	boxed::Box,
+	time::{Instant},
 };
 use rand::Rng;
-use sdl2::render::{Canvas, RenderTarget};
+use sdl2::render::{Canvas};
 use vek::{vec::repr_c::vec2::Vec2/*, geom::repr_c::Rect as vRect*/};
 use super::blocks::{Block, BLOCK_SIZE};
 use crate::entities::{
 	Entity,
+	Action,
 	Task,
 	//Player
 };
 
 // use super::blocks::walls;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Interaction {
+	Up,
+	Down,
+	Left,
+	Right,
+}
 
 const CHUNK_SIZE : u32 = 16;
 
-pub struct ChunkContent<T> {
+pub struct ChunkContent {
 	blocks: [[Block; CHUNK_SIZE as usize]; CHUNK_SIZE as usize],
-	entities: HashMap<u64, Box<dyn Entity<T>>>,
+	entities: HashMap<u64, Box<dyn Entity>>,
 }
 
 //#[derive(Debug)]
-impl<T: RenderTarget> ChunkContent<T> {
-	fn full_block(id: usize) -> ChunkContent<T> {
+impl ChunkContent {
+	fn full_block(id: usize) -> ChunkContent {
 		ChunkContent{
 			blocks : [[Block::from_id(id); CHUNK_SIZE as usize]; CHUNK_SIZE as usize],
 			entities : HashMap::new(),
 		}
 	}
-	fn add_entity<E: 'static +  Entity<T>>(&mut self, entity: E, uid: u64) {
-		self.entities.insert(uid, Box::new(entity));
+	fn add_entity(&mut self, entity: Box<dyn Entity>, uid: u64) {
+		self.entities.insert(uid, entity);
+	}
+	pub fn disp(&self, canvas : &mut Canvas<Window>, pos: Vec2<i32>, camera : &Vec2<f64>, level: i8) {
+		match level {
+			0 => {
+				let (width, height) = canvas.output_size().unwrap();
+				let top_left_px = {
+					let screen_center = Vec2::new(width as i32, height as i32)/2;
+					let absolute_pos_px = pos * CHUNK_SIZE as i32 * BLOCK_SIZE as i32;
+					let px_camera = camera * BLOCK_SIZE as f64;
+					screen_center + absolute_pos_px - px_camera.as_()
+				};
+				for x in 0..CHUNK_SIZE {
+					for y in 0..CHUNK_SIZE {
+						let block_in_chunk_pos_px = Vec2::new(x*BLOCK_SIZE, y*BLOCK_SIZE).as_();
+						let block_pos_px = top_left_px + block_in_chunk_pos_px;
+						self.blocks[x as usize][y as usize].disp(canvas, block_pos_px.x, block_pos_px.y);
+					}
+				}
+			},
+			1 => {
+				for (_,entity) in self.entities.iter() {
+					entity.disp(canvas, camera)
+				}
+			},
+			_ => unreachable!()
+		};
 	}
 }
 
 //#[derive(Debug)]
-pub struct Map<T> {
-	chunks : HashMap<Vec2<i32>,ChunkContent<T>>,
-	inactive : HashMap<Vec2<i32>,ChunkContent<T>>,
-	entities : HashMap<u64, Vec2<i32>>,
-	players : HashMap<u64, Vec2<i32>>,
+pub struct Map {
+	chunks: HashMap<Vec2<i32>,ChunkContent>,
+	inactive: HashMap<Vec2<i32>,ChunkContent>,
+	entities: HashMap<u64, Vec2<i32>>,
+	players: HashMap<u64, Vec2<i32>>,
+	last_update: Instant,
+	interaction_subject_uid: u64,
 }
 
-impl<T: RenderTarget> Map<T> {
-	pub fn new() -> Map<T> {
+impl Map {
+	pub fn new() -> Map {
 		Map {
 			chunks : HashMap::new(),
 			inactive : HashMap::new(),
 			entities : HashMap::new(),
 			players : HashMap::new(),
+			last_update : Instant::now(),
+			interaction_subject_uid : 0,
 		}
 	}
-	pub fn add_entity<E: 'static +  Entity<T>>(&mut self, entity: E) -> u64 {
+	pub fn add_entity(&mut self, entity: Box<dyn Entity>) -> u64 {
 		let mut rng = rand::thread_rng();
 		let uid = loop {
 			let uid = rng.gen::<u64>();
@@ -74,50 +114,43 @@ impl<T: RenderTarget> Map<T> {
 		self.entities.insert(uid, chunk_pos);
 		uid
 	}
-	fn get_ch(&mut self, pos: Vec2<i32>) -> &ChunkContent<T> {
+
+	pub fn see_entity(&mut self, uid: u64) -> &Box<dyn Entity> {
+		&self.get_active_ch(self.entities[&uid]).unwrap().entities[&uid]
+	}
+
+	fn get_ch(&mut self, pos: Vec2<i32>) -> &ChunkContent {
 		if !self.chunks.contains_key(&pos) {
 			self.chunks.insert(pos, chunk_gen::build(&pos));
 		}
 		&self.chunks[&pos]
 	}
-	fn get_active_ch(&self, pos: Vec2<i32>) -> Option<&ChunkContent<T>> {
+	fn get_active_ch(&self, pos: Vec2<i32>) -> Option<&ChunkContent> {
 		self.chunks.get(&pos)
 	}
-	fn get_mut_ch(&mut self, pos: Vec2<i32>) -> &mut ChunkContent<T> {
+	fn get_mut_ch(&mut self, pos: Vec2<i32>) -> &mut ChunkContent {
 		if !self.chunks.contains_key(&pos) {
 			self.chunks.insert(pos, chunk_gen::build(&pos));
 		}
 		self.chunks.get_mut(&pos).unwrap()
 	}
 	fn set_ch_block(&mut self, chunk_pos: &Vec2<i32>, block_pos: &Vec2<usize>, block : Block) {
-		self.chunks.get_mut(chunk_pos).unwrap().blocks[block_pos.x][block_pos.y] = block;
+		self.get_mut_ch(*chunk_pos).blocks[block_pos.x][block_pos.y] = block;
 	}
-	fn set_block(&mut self, pos: &Vec2<i32>, block_id : usize) {
-		let chunk_pos : Vec2<i32> = pos / Vec2::broadcast(CHUNK_SIZE as i32);
+	pub fn set_block(&mut self, pos: &Vec2<i32>, block_id : usize) {
+		let fpos : Vec2<f64> = pos.as_();
+		let chunk_pos : Vec2<i32> = (fpos / Vec2::broadcast(CHUNK_SIZE as f64)).floor().as_();
 		let block_pos = {
-			let mut res = pos - chunk_pos * Vec2::broadcast(CHUNK_SIZE as i32);
-			if pos.x < 0 && chunk_pos.x * CHUNK_SIZE as i32 != pos.x {
-				res.x += CHUNK_SIZE as i32;
-			}
-			if pos.y < 0 && chunk_pos.y * CHUNK_SIZE as i32 != pos.y {
-				res.y += CHUNK_SIZE as i32;
-			}
-			res
+			pos - chunk_pos * Vec2::broadcast(CHUNK_SIZE as i32)
 		};
 		let block_pos : Vec2<usize> = block_pos.as_();
 		self.set_ch_block(&chunk_pos, &block_pos, Block::from_id(block_id))
 	}
 	pub fn get_block(&mut self, pos: Vec2<i32>) -> &Block {
-		let chunk_pos : Vec2<i32> = pos / Vec2::broadcast(CHUNK_SIZE as i32);
+		let fpos : Vec2<f64> = pos.as_();
+		let chunk_pos : Vec2<i32> = (fpos / Vec2::broadcast(CHUNK_SIZE as f64)).floor().as_();
 		let block_pos = {
-			let mut res = pos - chunk_pos * Vec2::broadcast(CHUNK_SIZE as i32);
-			if pos.x < 0 && chunk_pos.x * CHUNK_SIZE as i32 != pos.x {
-				res.x += CHUNK_SIZE as i32;
-			}
-			if pos.y < 0 && chunk_pos.y * CHUNK_SIZE as i32 != pos.y {
-				res.y += CHUNK_SIZE as i32;
-			}
-			res
+			pos - chunk_pos * Vec2::broadcast(CHUNK_SIZE as i32)
 		};
 		if block_pos.x < 0 || block_pos.x >= BLOCK_SIZE as i32
 		|| block_pos.y < 0 || block_pos.y >= BLOCK_SIZE as i32 {
@@ -130,21 +163,66 @@ impl<T: RenderTarget> Map<T> {
 		let block_pos : Vec2<usize> = block_pos.as_();
 		&self.get_ch(chunk_pos).blocks[block_pos.x][block_pos.y]
 	}
-	pub fn disp(&mut self, canvas : &mut Canvas<T>, camera : &Vec2<f64>) {
-		let (width, height) = canvas.output_size().unwrap();
-		let start : Vec2<i32> = ((camera.floor() - camera) * BLOCK_SIZE as f64).as_();
-		let block_start : Vec2<i32> = (camera.floor() - 
-			(Vec2::new(width as f64, height as f64) / BLOCK_SIZE as f64 / 2_f64)).as_();
-		for (px_x, x) in (start.x..(width + 1) as i32).step_by(BLOCK_SIZE as usize)
-		             .zip(block_start.x..block_start.x + (width/BLOCK_SIZE + 2) as i32) {
-			for (px_y, y) in (start.y..(height + 1) as i32).step_by(BLOCK_SIZE as usize)
-			             .zip(block_start.y..block_start.y + (height/BLOCK_SIZE + 2) as i32) {
-				self.get_block(Vec2::new(x, y)).disp(canvas, px_x, px_y);
+	pub fn get_active_block(&self, pos: Vec2<i32>) -> Option<&Block> {
+		let fpos : Vec2<f64> = pos.as_();
+		let chunk_pos : Vec2<i32> = (fpos / CHUNK_SIZE as f64).floor().as_();
+		let block_pos = {
+			pos - chunk_pos * Vec2::broadcast(CHUNK_SIZE as i32)
+		};
+		if block_pos.x < 0 || block_pos.x >= BLOCK_SIZE as i32
+		|| block_pos.y < 0 || block_pos.y >= BLOCK_SIZE as i32 {
+			println!("-------------------------------------------");
+			println!("P {:?}", pos);
+			println!("C {:?}", chunk_pos * Vec2::broadcast(CHUNK_SIZE as i32));
+			println!("B {:?}", block_pos);
+			panic!("Invalid index !!! Contact developper and give him the aove values.");
+		}
+		let block_pos : Vec2<usize> = block_pos.as_();
+		match &self.get_active_ch(chunk_pos) {
+			Some(chunk) => {
+				let blc = &chunk.blocks[block_pos.x][block_pos.y];
+				// if pos.y == -15 || pos.y == -16 || pos.y == -17 {
+				// 	println!("pos {:?}, ch {:?}, bl {:?}, {:?}", pos.y, chunk_pos.y, block_pos.y, blc.block.is_solid);
+				// }
+				Some(blc)
+			},
+			None => {
+			println!("-------------------------------------------");
+			println!("P {:?}", pos);
+			println!("C {:?}", chunk_pos * Vec2::broadcast(CHUNK_SIZE as i32));
+			println!("B {:?}", block_pos);
+			println!("-------------------------------------------");
+				None},
+		}
+	}
+	pub fn disp(&mut self, canvas : &mut Canvas<Window>, camera : &Vec2<f64>) {
+		let window_size = {
+			let (width, height) = canvas.output_size().unwrap();
+			Vec2::new(width, height)
+		};
+		let chunk_scale = BLOCK_SIZE * CHUNK_SIZE;
+		let ch_start : Vec2<i32> = {
+			// The first chunk is at the coordinates of the camera minus half of the size of the
+			// window. All the computation is made in terms of chunk coordinates (instead of block
+			// coordinates or pixel coordinates) since it decides which first chunks displays.
+			let half_size = window_size.as_() / 2. / chunk_scale as f64;
+			((camera / CHUNK_SIZE as f64) - half_size).floor().as_()
+		};
+		let ch_end : Vec2<i32> = {
+			let half_size = window_size.as_() / 2. / chunk_scale as f64;
+			((camera / CHUNK_SIZE as f64) + half_size).ceil().as_()
+		};
+		for chunk_x in ch_start.x..ch_end.x {
+			for chunk_y in ch_start.y..ch_end.y {
+				let ch_pos = Vec2::new(chunk_x, chunk_y);
+				self.get_ch(ch_pos).disp(canvas, ch_pos, camera, 0);
 			}
 		}
-
-		for (uid,chunk_coord) in self.entities.iter() {
-			self.get_active_ch(*chunk_coord).unwrap().entities[&uid].disp(canvas, camera);
+		for chunk_x in ch_start.x..ch_end.x {
+			for chunk_y in ch_start.y..ch_end.y {
+				let ch_pos = Vec2::new(chunk_x, chunk_y);
+				self.get_ch(ch_pos).disp(canvas, ch_pos, camera, 1);
+			}
 		}
 	}
 	pub fn place(&mut self, id: usize, pos: Vec2<i32>) {
@@ -160,10 +238,21 @@ impl<T: RenderTarget> Map<T> {
 		for tmp in self.entities.iter() {
 			active_entities.push((*tmp.0, *tmp.1))
 		}
+		
+		let time = {
+			let t = self.last_update.elapsed().as_secs_f64();
+			//if t < 1. {return}
+			t//10.
+		};
+		self.last_update = Instant::now();
+		if time > 1. {
+			println!("skip");
+			return;
+		}
 		let mut all_tasks = Vec::new();
 		for (uid, chunk_pos) in active_entities {
 			all_tasks.push((
-				self.get_active_ch(chunk_pos).unwrap().entities[&uid].update(&self),
+				self.get_active_ch(chunk_pos).unwrap().entities[&uid].update(&self, time),
 				uid,
 				chunk_pos
 			));
@@ -171,8 +260,18 @@ impl<T: RenderTarget> Map<T> {
 		for (entity_tasks, uid, chunk_pos) in all_tasks {
 			for task in entity_tasks {
 				match task {
-					Task::Move(pos) => {
-						self.get_mut_ch(chunk_pos).entities.get_mut(&uid).unwrap().r#move(pos);
+					Task::Move(body) => {
+						let chunk_coords = (body.pos / CHUNK_SIZE as f64).floor().as_();
+						if chunk_pos != chunk_coords {
+							let entity = self.get_mut_ch(chunk_pos)
+							             .entities.remove(&uid).unwrap();
+							self.get_mut_ch(chunk_coords).entities.insert(uid, entity);
+							self.entities.insert(uid, chunk_coords);
+						} else {
+							self.get_mut_ch(chunk_pos)
+								.entities.get_mut(&uid).unwrap()
+								.move_body(body);
+						}
 					},
 					Task::Break(pos) => {
 						self.set_block(&pos, 0);
@@ -185,4 +284,25 @@ impl<T: RenderTarget> Map<T> {
 		}
 	}
 
+	pub fn set_interacter(&mut self, uid: u64) {
+		self.interaction_subject_uid = uid;
+	}
+	pub fn interact(&mut self, interaction: Interaction, start: bool) {
+		let uid = self.interaction_subject_uid;
+		let c: Option<&Vec2<i32>> = self.entities.get(&uid);
+		match c {
+			Some(chunk_coords) => {
+				let coords: Vec2<i32> = *chunk_coords;
+				self.get_mut_ch(coords)
+					.entities.get_mut(&uid).unwrap()
+					.control(match interaction {
+						Interaction::Up => {Action::MoveUp},
+						Interaction::Down => {Action::MoveDown},
+						Interaction::Left => {Action::MoveLeft},
+						Interaction::Right => {Action::MoveRight},
+					}, start)
+			},
+			None => {println!("No entity bound to key !");},
+		}
+	}
 }
