@@ -56,20 +56,8 @@ pub struct Player {
 	actions: PlayerActionList
 }
 
-fn compute_start(from_pos: Vec2<f64>, to_pos: Vec2<f64>, half_size: f64) -> i32 {
-	let downwards = from_pos.y < to_pos.y;
-	return (
-		if downwards {(from_pos.y + half_size).ceil()}
-		else         {(from_pos.y - half_size).ceil()}
-	) as i32
-}
-
-fn compute_end(from_pos: Vec2<f64>, to_pos: Vec2<f64>, half_size: f64) -> i32 {
-	let downwards = from_pos.y < to_pos.y;
-	return (
-		if downwards {(to_pos.y + half_size).floor()} 
-		else         {(to_pos.y - half_size).floor()}
-	) as i32
+fn iter_around(center: f64, dist: f64) -> std::ops::Range<i32> {
+	return (center - dist/2.).floor() as i32..(center + dist/2.).ceil() as i32
 }
 
 impl Entity for Player {
@@ -88,34 +76,64 @@ impl Entity for Player {
 			if self.actions.left {new_body.move_at(Vec2::new(-15., 0.), time);}
 			if self.actions.right {new_body.move_at(Vec2::new(15., 0.), time);}
 			if self.actions.up {
-				new_body.speed = Vec2::new(0., -15.);
+				//new_body.speed = Vec2::new(0., -15.);
+				new_body.move_at(Vec2::new(0., -15.), time);
+			}
+			if self.actions.down {
+				new_body.move_at(Vec2::new(0., 15.), time);
 			}
 		}
-		new_body.accelerate(time);
+
+		let mut to_visit: Vec<Vec2<i32>> = Vec::with_capacity(10);
+		//new_body.accelerate(time);
 		new_body.r#move(time);
-		let left = self.body.pos.x - (self.size.x as f64) / 2.;
-		let downwards = self.body.pos.y < new_body.pos.y;
-		///////////
-		let start = compute_start(self.body.pos, new_body.pos, self.size.y / 2.);
-		let end = compute_end(self.body.pos, new_body.pos, self.size.y / 2.);
-		let iterator: Box<dyn Iterator<Item = i32>> = {
-			if downwards {Box::new(start..end+1)} else { Box::new((end..start+1).rev()) }
-		};
-		///////////
-		for y in iterator {
-			let can_move_here = 
-			(left.floor() as i32..(left as f64 + self.size.x as f64/2.).ceil() as i32).all(
-				|x| !map.get_active_block(Vec2::new(x,y)).unwrap().block.is_solid
-			);
-			if !can_move_here {
-				new_body.speed.y = 0.;
-				let dir_size = (if downwards {-1.} else {1.}) * self.size.y;
-				new_body.pos.y = dir_size/2. + (y as i32) as f64;
-				if !downwards {
-					new_body.pos.y += 1.;
-				}
-				break;
+
+		let x_h_size = if new_body.pos.x < self.body.pos.x {- self.size.x} else {self.size.x} / 2.; 
+		let y_h_size = if new_body.pos.y < self.body.pos.y {- self.size.y} else {self.size.y} / 2.; 
+
+		if new_body.pos.x != self.body.pos.x {
+			for y in iter_around(new_body.pos.y, self.size.y) {
+				to_visit.push(Vec2::new((new_body.pos.x + x_h_size).floor() as i32, y));
 			}
+		}
+		if new_body.pos.y != self.body.pos.y {
+			for x in iter_around(new_body.pos.x, self.size.x) {
+				to_visit.push(Vec2::new(x, (new_body.pos.y + y_h_size).floor() as i32));
+			}
+		}
+
+		let mut x_prog_min: f64 = 1.;
+		let mut y_prog_min: f64 = 1.;
+		for mut pos in to_visit {
+			if map.get_active_block(pos).unwrap().block.is_solid {
+				if new_body.pos.x < self.body.pos.x {
+					pos.x += 1;
+				}
+				if new_body.pos.y < self.body.pos.y {
+					pos.y += 1;
+				}
+				if new_body.pos.x - self.body.pos.x != 0.0 {
+					let x_progress = (pos.x as f64 - self.body.pos.x -  x_h_size) / (new_body.pos.x - self.body.pos.x);
+					if x_progress < x_prog_min {
+						x_prog_min = x_progress;
+					}
+				}
+
+				if new_body.pos.y - self.body.pos.y != 0.0 {
+					let y_progress = (pos.y as f64 - self.body.pos.y - y_h_size) / (new_body.pos.y - self.body.pos.y);
+					if y_progress < y_prog_min {
+						y_prog_min = y_progress;
+					}
+				}
+			}
+		}
+		if x_prog_min < 1. {
+			new_body.pos.x = self.body.pos.x + (new_body.pos.x - self.body.pos.x) * x_prog_min;
+			new_body.speed.x = 0.0;
+		}
+		if y_prog_min < 1. {
+			new_body.pos.y = self.body.pos.y + (new_body.pos.y - self.body.pos.y) * y_prog_min;
+			new_body.speed.y = 0.0;
 		}
 		std::io::stdout().flush().expect("Hmmm......");
 				

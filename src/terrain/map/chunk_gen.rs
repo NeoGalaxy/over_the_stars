@@ -5,7 +5,7 @@ use super::{
 
 
 pub fn build(chunk_pos: &[i32]) -> ChunkContent {
-	if chunk_pos[1] <= -1 && chunk_pos[1] > -2 {
+	if chunk_pos[1] == -1 && (chunk_pos[0] == -1 || chunk_pos[0] == 0) {
 		ChunkContent::full_block(0)
 	} else {
 		if chunk_pos[0] == 0 && chunk_pos[1] == 0 {

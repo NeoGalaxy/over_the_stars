@@ -123,8 +123,8 @@ impl Map {
 		&self.get_ch(chunk_pos).blocks[block_pos.x][block_pos.y]
 	}
 	pub fn get_active_block(&self, pos: Vec2<i32>) -> Option<&Block> {
-		let fpos : Vec2<f64> = pos.as_();
-		let chunk_pos : Vec2<i32> = (fpos / CHUNK_SIZE as f64).floor().as_();
+		let fpos: Vec2<f64> = pos.as_();
+		let chunk_pos: Vec2<i32> = (fpos / CHUNK_SIZE as f64).floor().as_();
 		let block_pos = {
 			pos - chunk_pos * Vec2::broadcast(CHUNK_SIZE as i32)
 		};
