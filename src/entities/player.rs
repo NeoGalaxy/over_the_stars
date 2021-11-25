@@ -56,6 +56,22 @@ pub struct Player {
 	actions: PlayerActionList
 }
 
+fn compute_start(from_pos: Vec2<f64>, to_pos: Vec2<f64>, half_size: f64) -> i32 {
+	let downwards = from_pos.y < to_pos.y;
+	return (
+		if downwards {(from_pos.y + half_size).ceil()}
+		else         {(from_pos.y - half_size).ceil()}
+	) as i32
+}
+
+fn compute_end(from_pos: Vec2<f64>, to_pos: Vec2<f64>, half_size: f64) -> i32 {
+	let downwards = from_pos.y < to_pos.y;
+	return (
+		if downwards {(to_pos.y + half_size).floor()} 
+		else         {(to_pos.y - half_size).floor()}
+	) as i32
+}
+
 impl Entity for Player {
 	fn move_body(&mut self, body: Body) {
 		self.body = body
@@ -68,7 +84,6 @@ impl Entity for Player {
 	fn update(&self, map: &Map, time: f64) -> Vec<Task>{
 		let mut tasks = Vec::new();
 		let mut new_body = self.body.copy();
-		//let mut is_turning = false;
 		{
 			if self.actions.left {new_body.move_at(Vec2::new(-15., 0.), time);}
 			if self.actions.right {new_body.move_at(Vec2::new(15., 0.), time);}
@@ -81,22 +96,8 @@ impl Entity for Player {
 		let left = self.body.pos.x - (self.size.x as f64) / 2.;
 		let downwards = self.body.pos.y < new_body.pos.y;
 		///////////
-		let start = { // The height of the block after the current block
-			let tmp = self.body.pos.y;
-			let half_size = (self.size.y as f64) / 2.;
-			(
-				if downwards {(tmp + half_size).ceil()}
-				else         {(tmp - half_size).ceil()}
-			) as i32
-		};
-		let end = { // The block containing the destination
-			let tmp = new_body.pos.y;
-			let half_size = (self.size.y as f64) / 2.;
-			(
-				if downwards {(tmp + half_size).floor()} 
-				else {(tmp - half_size).floor()}
-			) as i32
-		};
+		let start = compute_start(self.body.pos, new_body.pos, self.size.y / 2.);
+		let end = compute_end(self.body.pos, new_body.pos, self.size.y / 2.);
 		let iterator: Box<dyn Iterator<Item = i32>> = {
 			if downwards {Box::new(start..end+1)} else { Box::new((end..start+1).rev()) }
 		};
