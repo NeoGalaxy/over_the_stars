@@ -23,6 +23,7 @@ use super::blocks::{Block, BLOCK_SIZE};
 use crate::entities::{
 	Entity,
 	Action,
+	Aiming,
 	Task,
 	//Player
 };
@@ -35,14 +36,17 @@ pub enum Interaction {
 	Down,
 	Left,
 	Right,
+	AimAt(Vec2<i32>),
+	Attack,
+	Use
 }
 
 //#[derive(Debug)]
 pub struct Map {
 	chunks: HashMap<Vec2<i32>,ChunkContent>,
-	inactive: HashMap<Vec2<i32>,ChunkContent>,
+	//inactive: HashMap<Vec2<i32>,ChunkContent>,
 	entities: HashMap<u64, Vec2<i32>>,
-	players: HashMap<u64, Vec2<i32>>,
+	//players: HashMap<u64, Vec2<i32>>,
 	last_update: Instant,
 	interaction_subject_uid: u64,
 }
@@ -51,9 +55,9 @@ impl Map {
 	pub fn new() -> Map {
 		Map {
 			chunks : HashMap::new(),
-			inactive : HashMap::new(),
+			//inactive : HashMap::new(),
 			entities : HashMap::new(),
-			players : HashMap::new(),
+			//players : HashMap::new(),
 			last_update : Instant::now(),
 			interaction_subject_uid : 0,
 		}
@@ -93,8 +97,8 @@ impl Map {
 		}
 		self.chunks.get_mut(&pos).unwrap()
 	}
-	fn set_ch_block(&mut self, chunk_pos: &Vec2<i32>, block_pos: &Vec2<usize>, block : Block) {
-		self.get_mut_ch(*chunk_pos).blocks[block_pos.x][block_pos.y] = block;
+	fn set_ch_block(&mut self, chunk_pos: &Vec2<i32>, block_pos: &Vec2<usize>, block_id: usize) {
+		self.get_mut_ch(*chunk_pos).blocks[block_pos.x][block_pos.y].set_block(block_id);
 	}
 	pub fn set_block(&mut self, pos: &Vec2<i32>, block_id : usize) {
 		let fpos : Vec2<f64> = pos.as_();
@@ -103,7 +107,7 @@ impl Map {
 			pos - chunk_pos * Vec2::broadcast(CHUNK_SIZE as i32)
 		};
 		let block_pos : Vec2<usize> = block_pos.as_();
-		self.set_ch_block(&chunk_pos, &block_pos, Block::from_id(block_id))
+		self.set_ch_block(&chunk_pos, &block_pos, block_id)
 	}
 	pub fn get_block(&mut self, pos: Vec2<i32>) -> &Block {
 		let fpos : Vec2<f64> = pos.as_();
@@ -117,7 +121,7 @@ impl Map {
 			println!("P {:?}", pos);
 			println!("C {:?}", chunk_pos * Vec2::broadcast(CHUNK_SIZE as i32));
 			println!("B {:?}", block_pos);
-			panic!("Invalid index !!! Contact developper and give him the aove values.");
+			panic!("Invalid index !!! Contact developper and give him the above values.");
 		}
 		let block_pos : Vec2<usize> = block_pos.as_();
 		&self.get_ch(chunk_pos).blocks[block_pos.x][block_pos.y]
@@ -190,7 +194,7 @@ impl Map {
 			let pos: Vec2<usize> = pos.as_(); let chunk_pos: Vec2<usize> = chunk_pos.as_();
 			pos - chunk_pos * Vec2::broadcast(CHUNK_SIZE as usize)
 		};
-		self.set_ch_block(&chunk_pos, &block_pos, Block::from_id(id));
+		self.set_ch_block(&chunk_pos, &block_pos, id);
 	}
 	pub fn update_active(&mut self) {
 		let mut active_entities: Vec<(u64,Vec2<i32>)> = Vec::new();
@@ -247,6 +251,21 @@ impl Map {
 		self.interaction_subject_uid = uid;
 	}
 	pub fn interact(&mut self, interaction: Interaction, start: bool) {
+		let action = match interaction {
+			Interaction::Up => {Action::MoveUp},
+			Interaction::Down => {Action::MoveDown},
+			Interaction::Left => {Action::MoveLeft},
+			Interaction::Right => {Action::MoveRight},
+			Interaction::AimAt(b_pos) => {
+				let block = self.get_block(b_pos);
+				Action::Aim(
+					if block.block.id == 0 
+					{Aiming::Position(b_pos)}
+					else {Aiming::Block(b_pos)})
+			},
+			Interaction::Attack => {Action::Attack},
+			Interaction::Use => {Action::Use},
+		};
 		let uid = self.interaction_subject_uid;
 		let c: Option<&Vec2<i32>> = self.entities.get(&uid);
 		match c {
@@ -254,12 +273,7 @@ impl Map {
 				let coords: Vec2<i32> = *chunk_coords;
 				self.get_mut_ch(coords)
 					.entities.get_mut(&uid).unwrap()
-					.control(match interaction {
-						Interaction::Up => {Action::MoveUp},
-						Interaction::Down => {Action::MoveDown},
-						Interaction::Left => {Action::MoveLeft},
-						Interaction::Right => {Action::MoveRight},
-					}, start)
+					.control(action, start)
 			},
 			None => {println!("No entity bound to key !");},
 		}

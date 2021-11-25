@@ -21,6 +21,7 @@ use vek::{
 #[derive(Debug)]
 pub enum Aiming {
 	Nothing,
+	Position(Vec2<i32>),
 	Block(Vec2<i32>),
 }
 
@@ -29,6 +30,7 @@ pub struct Body {
 	pub pos: Vec2<f64>,
 	pub speed: Vec2<f64>,
 	pub acceleration: Vec2<f64>,
+	pub on_floor: bool,
 }
 
 impl Body {

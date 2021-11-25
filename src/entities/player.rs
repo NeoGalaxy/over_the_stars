@@ -62,7 +62,7 @@ fn iter_around(center: f64, dist: f64) -> std::ops::Range<i32> {
 
 impl Entity for Player {
 	fn move_body(&mut self, body: Body) {
-		self.body = body
+		self.body = body;
 	}
 	fn get_pos(&self) -> Vec2<f64> {self.body.pos}
 	fn overlaps(&self, area: vRect<f64, f64>) -> bool {
@@ -72,72 +72,59 @@ impl Entity for Player {
 	fn update(&self, map: &Map, time: f64) -> Vec<Task>{
 		let mut tasks = Vec::new();
 		let mut new_body = self.body.copy();
-		{
-			if self.actions.left {new_body.move_at(Vec2::new(-15., 0.), time);}
-			if self.actions.right {new_body.move_at(Vec2::new(15., 0.), time);}
-			if self.actions.up {
-				//new_body.speed = Vec2::new(0., -15.);
-				new_body.move_at(Vec2::new(0., -15.), time);
-			}
-			if self.actions.down {
-				new_body.move_at(Vec2::new(0., 15.), time);
-			}
+		if self.actions.left {new_body.move_at(Vec2::new(-15., 0.), time);}
+		if self.actions.right {new_body.move_at(Vec2::new(15., 0.), time);}
+		if self.actions.up && self.body.on_floor {
+			new_body.speed = Vec2::new(0., -15.);
 		}
 
-		let mut to_visit: Vec<Vec2<i32>> = Vec::with_capacity(10);
-		//new_body.accelerate(time);
+		new_body.accelerate(time);
 		new_body.r#move(time);
 
 		let x_h_size = if new_body.pos.x < self.body.pos.x {- self.size.x} else {self.size.x} / 2.; 
 		let y_h_size = if new_body.pos.y < self.body.pos.y {- self.size.y} else {self.size.y} / 2.; 
 
-		if new_body.pos.x != self.body.pos.x {
-			for y in iter_around(new_body.pos.y, self.size.y) {
-				to_visit.push(Vec2::new((new_body.pos.x + x_h_size).floor() as i32, y));
-			}
-		}
-		if new_body.pos.y != self.body.pos.y {
-			for x in iter_around(new_body.pos.x, self.size.x) {
-				to_visit.push(Vec2::new(x, (new_body.pos.y + y_h_size).floor() as i32));
+		let x_position = (new_body.pos.x + x_h_size).floor() as i32;
+		for y_pos in iter_around(self.body.pos.y, self.size.y) {
+			if map.get_active_block(Vec2::new(x_position, y_pos)).unwrap().block.is_solid {
+				new_body.pos.x = x_position as f64 - x_h_size;
+				new_body.speed.x = 0.0;
+				if x_h_size < 0.0 {
+					new_body.pos.x += 1.0;
+				}
 			}
 		}
 
-		let mut x_prog_min: f64 = 1.;
-		let mut y_prog_min: f64 = 1.;
-		for mut pos in to_visit {
-			if map.get_active_block(pos).unwrap().block.is_solid {
-				if new_body.pos.x < self.body.pos.x {
-					pos.x += 1;
-				}
-				if new_body.pos.y < self.body.pos.y {
-					pos.y += 1;
-				}
-				if new_body.pos.x - self.body.pos.x != 0.0 {
-					let x_progress = (pos.x as f64 - self.body.pos.x -  x_h_size) / (new_body.pos.x - self.body.pos.x);
-					if x_progress < x_prog_min {
-						x_prog_min = x_progress;
-					}
-				}
 
-				if new_body.pos.y - self.body.pos.y != 0.0 {
-					let y_progress = (pos.y as f64 - self.body.pos.y - y_h_size) / (new_body.pos.y - self.body.pos.y);
-					if y_progress < y_prog_min {
-						y_prog_min = y_progress;
-					}
+		new_body.on_floor = false;
+		let y_position = (new_body.pos.y + y_h_size).floor() as i32;
+		for x_pos in iter_around(self.body.pos.x, self.size.x) {
+			if map.get_active_block(Vec2::new(x_pos, y_position)).unwrap().block.is_solid {
+				new_body.pos.y = y_position as f64 - y_h_size;
+				new_body.speed.y = 0.0;
+				if y_h_size < 0.0 {
+					new_body.pos.y += 1.0;
+				} else {
+					new_body.on_floor = true;
 				}
 			}
 		}
-		if x_prog_min < 1. {
-			new_body.pos.x = self.body.pos.x + (new_body.pos.x - self.body.pos.x) * x_prog_min;
-			new_body.speed.x = 0.0;
-		}
-		if y_prog_min < 1. {
-			new_body.pos.y = self.body.pos.y + (new_body.pos.y - self.body.pos.y) * y_prog_min;
-			new_body.speed.y = 0.0;
-		}
+
 		std::io::stdout().flush().expect("Hmmm......");
-				
+
 		tasks.push(Task::Move(new_body));
+		if self.actions.attack {
+			match self.aim {
+				Block(pos) => tasks.push(Task::Break(pos)),
+				_ => ()
+			}
+		}
+		if self.actions.using {
+			match self.aim {
+				Position(pos) => tasks.push(Task::Place(pos, 1)),
+				_ => ()
+			}
+		}
 		tasks
 	}
 	fn control(&mut self, action: Action, start: bool) {
@@ -184,7 +171,7 @@ impl Displayable for Player {
 impl Player {
 	pub fn create(pos: Vec2<f64>, map: &mut Map) -> u64 {
 		map.add_entity(Box::new(Player {
-			body: Body{pos, speed: Vec2::new(0.,0.), acceleration: Vec2::new(0.,30.)},
+			body: Body{pos, speed: Vec2::new(0.,0.), acceleration: Vec2::new(0.,30.), on_floor: false},
 			size: Vec2::new(0.95, 30./16.),
 			aim: Nothing,
 			inv: Inventory{},

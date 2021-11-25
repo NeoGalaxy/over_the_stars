@@ -18,9 +18,9 @@ pub struct ChunkContent {
 }
 
 impl ChunkContent {
-	pub fn full_block(id: usize) -> ChunkContent {
+	pub fn full_block(id: usize, bg_id: usize) -> ChunkContent {
 		ChunkContent{
-			blocks : [[Block::from_id(id); CHUNK_SIZE as usize]; CHUNK_SIZE as usize],
+			blocks : [[Block::from_id(id, bg_id); CHUNK_SIZE as usize]; CHUNK_SIZE as usize],
 			entities : HashMap::new(),
 		}
 	}
