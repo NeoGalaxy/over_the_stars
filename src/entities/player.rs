@@ -134,10 +134,27 @@ impl Entity for Player {
 			MoveDown => {self.actions.down = start}
 			MoveLeft => {self.actions.left = start}
 			MoveRight => {self.actions.right = start}
-			Aim(aim) => {self.aim = aim}
+			Aim(aim) => {
+				self.aim = match aim {
+					Nothing => Nothing,
+					Position(pos) | Block(pos) => {
+						let xdiff = (self.body.pos.x - 0.5) as i32 - pos.x;
+						let ydiff = (self.body.pos.y - 0.5) as i32 - pos.y;
+						if xdiff.abs() + ydiff.abs() < 10 {
+							aim
+						} else {
+							Nothing
+						}
+					},
+				}
+
+			}
 			Attack => {self.actions.attack = start}
 			Use => {self.actions.using = start}
 		}
+	}
+	fn get_light(&mut self) -> i32 {
+		return 30;
 	}
 }
 
@@ -153,6 +170,19 @@ impl Displayable for Player {
 		canvas.set_draw_color(Color::RGBA(255,255,255,150));
 		let px_size = (self.size * BLOCK_SIZE as f64).as_();
 		canvas.fill_rect(Rect::from_center(center, px_size.x, px_size.y)).unwrap();
+
+		match self.aim {
+			Nothing => (),
+			Position(pos) | Block(pos) => {
+				let pix_pos = ((pos.as_::<f64>() - camera) * BLOCK_SIZE as f64).as_()
+					+ screen_center;
+				canvas.set_draw_color(Color::RGBA(255, 255, 255, 80));
+				canvas.draw_rect(Rect::new(pix_pos.x, pix_pos.y, BLOCK_SIZE, BLOCK_SIZE))
+				.unwrap();
+				canvas.draw_rect(Rect::new(pix_pos.x+1, pix_pos.y+1, BLOCK_SIZE-2, BLOCK_SIZE-2))
+				.unwrap();
+			}
+		}
 	}
 	fn disp_surf(&self, canvas : &mut Canvas<Surface>, camera : &Vec2<f64>) {
 			let (width, height) = canvas.output_size().unwrap();
@@ -171,7 +201,12 @@ impl Displayable for Player {
 impl Player {
 	pub fn create(pos: Vec2<f64>, map: &mut Map) -> u64 {
 		map.add_entity(Box::new(Player {
-			body: Body{pos, speed: Vec2::new(0.,0.), acceleration: Vec2::new(0.,30.), on_floor: false},
+			body: Body{
+				pos,
+				speed: Vec2::new(0.,0.),
+				acceleration: Vec2::new(0.,30.),
+				on_floor: false
+			},
 			size: Vec2::new(0.95, 30./16.),
 			aim: Nothing,
 			inv: Inventory{},

@@ -63,6 +63,7 @@ pub enum Task {
 	Move(Body),
 	Break(Vec2<i32>),
 	Place(Vec2<i32>, usize),
+	//Light((i32, i32), Option<Vec2<i32>>),
 }
 
 #[derive(Debug)]
@@ -91,6 +92,7 @@ pub trait Entity: Displayable {
 	fn overlaps(&self, area: vRect<f64, f64>) -> bool;
 	fn update(&self, map: &Map, time: f64) -> Vec<Task>;
 	fn control(&mut self, action: Action, start: bool);
+	fn get_light(&mut self) -> i32;
 	//fn activate(&mut self);
 	//fn disactivate(&mut self);
 }

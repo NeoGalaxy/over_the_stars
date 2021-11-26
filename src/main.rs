@@ -16,7 +16,7 @@ use sdl2::{
 use sdl2_sys::SDL_WindowFlags;
 use vek::vec::repr_c::vec2::Vec2;
 
-//use std::time::{Instant};
+use std::time::{Instant};
 
 use terrain::{
 	map::{
@@ -26,19 +26,24 @@ use terrain::{
 };
 use entities::{player::Player};
 
-// #![allow(unused)]
+fn update_mouse(mouse: &Vec2<f64>, map: &mut Map) {
+	let block_pos: Vec2<i32> = (mouse / BLOCK_SIZE as f64).floor().as_();
+	map.interact(AimAt(block_pos), true);
+}
+
 fn main() {
-	let mut key_mapping : HashMap<Keycode, Interaction> =
+	let key_mapping : HashMap<Keycode, Interaction> =
 	[(Keycode::Z, Interaction::Up),
 	 (Keycode::S, Interaction::Down),
 	 (Keycode::Q, Interaction::Left),
 	 (Keycode::D, Interaction::Right)]
 	 .iter().cloned().collect();
-	let mut mouse_mapping : HashMap<MouseButton, Interaction> =
+	let mouse_mapping : HashMap<MouseButton, Interaction> =
 	[(MouseButton::Left,  Interaction::Attack),
 	 (MouseButton::Right, Interaction::Use)]
 	 .iter().cloned().collect();
 	let mut action_active : [bool; 4] = [false, false, false, false];
+	let mut mouse_pos: Option<Vec2<f64>> = None;
 
 	let mut map = Map::new();
 	let player_id = Player::create(Vec2::new(0.,-15.0), &mut map);
@@ -49,11 +54,13 @@ fn main() {
 	let window = video_subsystem.window("rust-sdl2 demo", 800, 600)
 		.set_window_flags(SDL_WindowFlags::SDL_WINDOW_RESIZABLE as u32)
 		.position_centered()
+		.position_centered()
 		.build()
 		.unwrap();
 	let mut canvas = window.into_canvas().present_vsync().build().unwrap();
 	canvas.set_draw_color(Color::RGB(0, 255, 255));
 	canvas.clear();
+	canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
 	let mut pos = Vec2::new(0.,0.);
 	{
 		//let pos = map.see_entity(player_id).get_pos();
@@ -61,9 +68,9 @@ fn main() {
 	}
 	canvas.present();
 	let mut event_pump = sdl_context.event_pump().unwrap();
-	//let mut last = Instant::now();
-	//let mut intervall;
-	//let mut cnt = 0;
+	let mut last = Instant::now();
+	let mut intervall = 0.;
+	let mut cnt = 0;
 	'running: loop {
 		for event in event_pump.poll_iter() {
 			match event {
@@ -79,7 +86,7 @@ fn main() {
 						Keycode::Left => {action_active[2] = true;}
 						Keycode::Right => {action_active[3] = true;},
 						_ => {
-							if let Some(interaction) = key_mapping.get_mut(&code) {
+							if let Some(interaction) = key_mapping.get(&code) {
 								map.interact(*interaction, true);
 							}
 						}
@@ -92,7 +99,7 @@ fn main() {
 						Keycode::Left => {action_active[2] = false;}
 						Keycode::Right => {action_active[3] = false;},
 						_ => {
-							if let Some(interaction) = key_mapping.get_mut(&code) {
+							if let Some(interaction) = key_mapping.get(&code) {
 								map.interact(*interaction, false);
 							}
 						}
@@ -102,52 +109,43 @@ fn main() {
 					let (width, height) = canvas.output_size().unwrap();
 					let screen_center = Vec2::new(width as i32, height as i32)/2;
 					let px_camera = pos * BLOCK_SIZE as f64;
-					let mouse = Vec2::new(mouse_x, mouse_y) - screen_center + px_camera.as_();
-					let block_pos: Vec2<i32> = (mouse.as_() / BLOCK_SIZE as f64).floor().as_();
-					map.interact(AimAt(block_pos), true);
+					mouse_pos = Some(Vec2::new(mouse_x, mouse_y).as_()
+						- screen_center.as_() + px_camera);
+					update_mouse(&mouse_pos.unwrap(), &mut map);
 				},
 				Event::MouseButtonDown {mouse_btn: button, ..} => {
-					if let Some(interaction) = mouse_mapping.get_mut(&button) {
+					if let Some(interaction) = mouse_mapping.get(&button) {
 						map.interact(*interaction, true);
 					}
 				},
 				Event::MouseButtonUp {mouse_btn: button, ..} => {
-					if let Some(interaction) = mouse_mapping.get_mut(&button) {
+					if let Some(interaction) = mouse_mapping.get(&button) {
 						map.interact(*interaction, false);
 					}
 				}
 				_ => {}
 			}
 		}
-		/*cnt = (cnt + 1) % 10;
-		intervall = last.elapsed().as_secs_f64();
+		cnt += 1;
+		intervall += last.elapsed().as_secs_f64();
 		last = Instant::now();
-		print!("{:3.4}", 1./intervall);
-		print!("    ");
-		if cnt == 0 {
+		if cnt == 10 {
+			print!("{:3.4}", 10./intervall);
+			print!("    ");
 			print!("\r");
-		}*/
-		/*let speed = 15.;
-		if action_active[0] {
-			pos.y -= speed * intervall;
+			intervall = 0.0;
+			cnt = 0;
 		}
-		if action_active[1] {
-			pos.y += speed * intervall;
-		}
-		if action_active[2] {
-			pos.x -= speed * intervall;
-		}
-		if action_active[3] {
-			pos.x += speed * intervall;
-		}*/
 		map.update_active();
+		let new_pos = map.see_entity(player_id).get_pos();
+		if let Some(mpos) = mouse_pos {
+			mouse_pos = Some(mpos + (new_pos - pos) * BLOCK_SIZE as f64);
+			update_mouse(&mouse_pos.unwrap(), &mut map);
+		}
+		pos = new_pos;
 		canvas.set_draw_color(Color::RGB(0, 255, 255));
 		canvas.clear();
-		pos = map.see_entity(player_id).get_pos();
-		{
-			//let pos = map.see_entity(player_id).get_pos();
-			map.disp(&mut canvas, &pos);
-		}
+		map.disp(&mut canvas, &pos);
 		canvas.present();
 	}
 }

@@ -4,6 +4,7 @@ extern crate vek;
 pub mod chunk_gen;
 pub mod chunk;
 
+use std::cmp::{min, max};
 use chunk::{
 	ChunkContent,
 	CHUNK_SIZE
@@ -49,6 +50,7 @@ pub struct Map {
 	//players: HashMap<u64, Vec2<i32>>,
 	last_update: Instant,
 	interaction_subject_uid: u64,
+	frame: i64,
 }
 
 impl Map {
@@ -60,6 +62,7 @@ impl Map {
 			//players : HashMap::new(),
 			last_update : Instant::now(),
 			interaction_subject_uid : 0,
+			frame: 0,
 		}
 	}
 	pub fn add_entity(&mut self, entity: Box<dyn Entity>) -> u64 {
@@ -125,6 +128,23 @@ impl Map {
 		}
 		let block_pos : Vec2<usize> = block_pos.as_();
 		&self.get_ch(chunk_pos).blocks[block_pos.x][block_pos.y]
+	}
+	fn get_block_mut(&mut self, pos: Vec2<i32>) -> &mut Block {
+		let fpos : Vec2<f64> = pos.as_();
+		let chunk_pos : Vec2<i32> = (fpos / Vec2::broadcast(CHUNK_SIZE as f64)).floor().as_();
+		let block_pos = {
+			pos - chunk_pos * Vec2::broadcast(CHUNK_SIZE as i32)
+		};
+		if block_pos.x < 0 || block_pos.x >= BLOCK_SIZE as i32
+		|| block_pos.y < 0 || block_pos.y >= BLOCK_SIZE as i32 {
+			println!("-------------------------------------------");
+			println!("P {:?}", pos);
+			println!("C {:?}", chunk_pos * Vec2::broadcast(CHUNK_SIZE as i32));
+			println!("B {:?}", block_pos);
+			panic!("Invalid index !!! Contact developper and give him the above values.");
+		}
+		let block_pos : Vec2<usize> = block_pos.as_();
+		&mut self.get_mut_ch(chunk_pos).blocks[block_pos.x][block_pos.y]
 	}
 	pub fn get_active_block(&self, pos: Vec2<i32>) -> Option<&Block> {
 		let fpos: Vec2<f64> = pos.as_();
@@ -197,7 +217,8 @@ impl Map {
 		self.set_ch_block(&chunk_pos, &block_pos, id);
 	}
 	pub fn update_active(&mut self) {
-		let mut active_entities: Vec<(u64,Vec2<i32>)> = Vec::new();
+		self.frame += 1;
+		let mut active_entities: Vec<(u64, Vec2<i32>)> = Vec::new();
 		for tmp in self.entities.iter() {
 			active_entities.push((*tmp.0, *tmp.1))
 		}
@@ -224,26 +245,64 @@ impl Map {
 			for task in entity_tasks {
 				match task {
 					Task::Move(body) => {
-						let chunk_coords = (body.pos / CHUNK_SIZE as f64).floor().as_();
+						let new_pos = body.pos.floor().as_::<i32>();
+						let chunk_coords = new_pos / CHUNK_SIZE as i32;
 						if chunk_pos != chunk_coords {
 							let entity = self.get_mut_ch(chunk_pos)
 							             .entities.remove(&uid).unwrap();
 							self.get_mut_ch(chunk_coords).entities.insert(uid, entity);
 							self.entities.insert(uid, chunk_coords);
-						} else {
-							self.get_mut_ch(chunk_pos)
-								.entities.get_mut(&uid).unwrap()
-								.move_body(body);
 						}
+						let entity = self.get_mut_ch(chunk_coords)
+							.entities.get_mut(&uid).unwrap();
+						let old_pos = entity.get_pos().floor().as_::<i32>();
+						entity.move_body(body);
+						let entity_light = entity.get_light();
+						let curr_frame = self.frame;
+						let block = self.get_block_mut(new_pos);
+						block.update_entity_light(entity_light, curr_frame);
+						self.update_light(old_pos.x, old_pos.y, curr_frame);
+						self.update_light(new_pos.x, new_pos.y, curr_frame);
+
 					},
 					Task::Break(pos) => {
 						self.set_block(&pos, 0);
+						self.update_light(pos.x, pos.y, self.frame);
 					},
 					Task::Place(pos, id) => {
 						self.set_block(&pos, id);
-					},
+						self.update_light(pos.x, pos.y, self.frame);
+					}
 				}
 			}
+		}
+	}
+
+	fn update_light(&mut self, x: i32, y: i32, frame: i64) {
+		let curr_block = self.get_block(Vec2::new(x,y));
+		let curr_light = curr_block.light;
+		let intern_light = curr_block.intern_light();
+		let entity_light = {
+			if curr_block.entity_light_frame == frame {
+				curr_block.entity_light
+			} else {
+				0
+			}
+		};
+		let extern_light = {
+			let b1 = self.get_block(Vec2::new(x+1,y)).light;
+			let b2 = self.get_block(Vec2::new(x-1,y)).light;
+			let b3 = self.get_block(Vec2::new(x,y+1)).light;
+			let b4 = self.get_block(Vec2::new(x,y-1)).light;
+			max(b1, max(b2, max(b3, b4))) + min(0, intern_light)
+		};
+		let new_light = max(max(intern_light, extern_light), entity_light);
+		if new_light != curr_light {
+			self.get_block_mut(Vec2::new(x,y)).light = new_light;
+			self.update_light(x+1, y, frame);
+			self.update_light(x-1, y, frame);
+			self.update_light(x, y+1, frame);
+			self.update_light(x, y-1, frame);
 		}
 	}
 
@@ -259,9 +318,13 @@ impl Map {
 			Interaction::AimAt(b_pos) => {
 				let block = self.get_block(b_pos);
 				Action::Aim(
-					if block.block.id == 0 
-					{Aiming::Position(b_pos)}
-					else {Aiming::Block(b_pos)})
+					if block.light <= 0 {
+						Aiming::Nothing
+					} else if block.block.id == 0 {
+						Aiming::Position(b_pos)
+					} else {
+						Aiming::Block(b_pos)
+					})
 			},
 			Interaction::Attack => {Action::Attack},
 			Interaction::Use => {Action::Use},
