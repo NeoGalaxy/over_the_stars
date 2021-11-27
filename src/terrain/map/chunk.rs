@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 use vek::Vec2;
+use rand::Rng;
 
 pub const CHUNK_SIZE : u32 = 16;
 
@@ -21,6 +22,38 @@ impl ChunkContent {
 	pub fn full_block(id: usize, bg_id: usize) -> ChunkContent {
 		ChunkContent{
 			blocks : [[Block::from_id(id, bg_id); CHUNK_SIZE as usize]; CHUNK_SIZE as usize],
+			entities : HashMap::new(),
+		}
+	}
+	pub fn random(blocktypes: &[(usize, usize, u32)]) -> ChunkContent {
+		let mut rng = rand::thread_rng();
+		let total = {
+			let mut x = 0;
+			for (_, _, prob) in blocktypes {
+				x += *prob as i32;
+			}
+			x
+		};
+		let mut blocks = [[Default::default(); CHUNK_SIZE as usize]; CHUNK_SIZE as usize];
+		for i in 0..CHUNK_SIZE as usize {
+			for j in 0..CHUNK_SIZE as usize {
+				let (id, bg_id, _) = {
+					let mut value = rng.gen_range(0, total);
+					let mut index = 0;
+					loop {
+						value -= blocktypes[index].2 as i32;
+						if value <= 0 {
+							break;
+						}
+						index += 1;
+					}
+					blocktypes[index]
+				};
+				blocks[i][j] = Block::from_id(id, bg_id);
+			}
+		}
+		ChunkContent{
+			blocks : blocks,
 			entities : HashMap::new(),
 		}
 	}

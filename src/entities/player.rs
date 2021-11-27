@@ -75,7 +75,7 @@ impl Entity for Player {
 		if self.actions.left {new_body.move_at(Vec2::new(-15., 0.), time);}
 		if self.actions.right {new_body.move_at(Vec2::new(15., 0.), time);}
 		if self.actions.up && self.body.on_floor {
-			new_body.speed = Vec2::new(0., -15.);
+			new_body.speed = Vec2::new(0., -30.);
 		}
 
 		new_body.accelerate(time);
@@ -204,10 +204,10 @@ impl Player {
 			body: Body{
 				pos,
 				speed: Vec2::new(0.,0.),
-				acceleration: Vec2::new(0.,30.),
+				acceleration: Vec2::new(0.,60.),
 				on_floor: false
 			},
-			size: Vec2::new(0.95, 30./16.),
+			size: Vec2::new(1.3, 2.8),
 			aim: Nothing,
 			inv: Inventory{},
 			health: Health{},

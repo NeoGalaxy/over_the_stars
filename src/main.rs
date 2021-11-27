@@ -46,12 +46,12 @@ fn main() {
 	let mut mouse_pos: Option<Vec2<f64>> = None;
 
 	let mut map = Map::new();
-	let player_id = Player::create(Vec2::new(0.,-15.0), &mut map);
+	let player_id = Player::create(Vec2::new(0.,-10.0), &mut map);
 	map.set_interacter(player_id);
 	let sdl_context = sdl2::init().unwrap();
 	let video_subsystem = sdl_context.video().unwrap();
  
-	let window = video_subsystem.window("rust-sdl2 demo", 800, 600)
+	let window = video_subsystem.window("Above", 800, 600)
 		.set_window_flags(SDL_WindowFlags::SDL_WINDOW_RESIZABLE as u32)
 		.position_centered()
 		.position_centered()

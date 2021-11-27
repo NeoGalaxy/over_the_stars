@@ -21,7 +21,14 @@ pub struct Block {
 
 impl Default for Block {
 	fn default() -> Block {
-		Block::from_id(1, 1)
+		Block {
+			block: types::get(0),
+			wall: types::get(0),
+			light: 0,
+			entity_light: 0,
+			entity_light_frame: -1,
+			break_progress: 0
+		}
 	}
 }
 
@@ -63,7 +70,7 @@ impl Block {
 			canvas.set_draw_color(color);
 			canvas.fill_rect(block_rect).unwrap();
 		}
-		if self.light < 40 {
+		if self.light < 37 {
 			if self.light <= 0 {
 				canvas.set_draw_color(Color::BLACK);
 			} else {
