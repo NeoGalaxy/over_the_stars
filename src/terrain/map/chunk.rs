@@ -4,6 +4,8 @@ use sdl2::video::Window;
 use vek::Vec2;
 use rand::Rng;
 
+pub mod gen;
+
 pub const CHUNK_SIZE : u32 = 16;
 
 use crate::entities::Entity;

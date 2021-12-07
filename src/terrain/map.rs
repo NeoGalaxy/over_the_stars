@@ -1,9 +1,9 @@
 extern crate sdl2;
 extern crate vek;
 
-pub mod chunk_gen;
 pub mod chunk;
 
+use chunk::gen::TerrainGenerator;
 use std::cmp::{min, max};
 use chunk::{
 	ChunkContent,
@@ -44,6 +44,7 @@ pub enum Interaction {
 
 //#[derive(Debug)]
 pub struct Map {
+	gen: TerrainGenerator,
 	chunks: HashMap<Vec2<i32>,ChunkContent>,
 	//inactive: HashMap<Vec2<i32>,ChunkContent>,
 	entities: HashMap<u64, Vec2<i32>>,
@@ -56,6 +57,7 @@ pub struct Map {
 impl Map {
 	pub fn new() -> Map {
 		Map {
+			gen: TerrainGenerator::new(),
 			chunks : HashMap::new(),
 			//inactive : HashMap::new(),
 			entities : HashMap::new(),
@@ -87,7 +89,7 @@ impl Map {
 
 	fn get_ch(&mut self, pos: Vec2<i32>) -> &ChunkContent {
 		if !self.chunks.contains_key(&pos) {
-			self.chunks.insert(pos, chunk_gen::build(&pos));
+			self.chunks.insert(pos, self.gen.build(&pos));
 		}
 		&self.chunks[&pos]
 	}
@@ -96,7 +98,7 @@ impl Map {
 	}
 	fn get_mut_ch(&mut self, pos: Vec2<i32>) -> &mut ChunkContent {
 		if !self.chunks.contains_key(&pos) {
-			self.chunks.insert(pos, chunk_gen::build(&pos));
+			self.chunks.insert(pos, self.gen.build(&pos));
 		}
 		self.chunks.get_mut(&pos).unwrap()
 	}

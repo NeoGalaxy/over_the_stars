@@ -50,6 +50,9 @@ impl Block {
 	pub fn set_block(&mut self, id: usize) {
 		self.block = types::get(id);
 	}
+	pub fn set_wall(&mut self, id: usize) {
+		self.wall = types::get(id);
+	}
 	pub fn intern_light(&self) -> i32 {
 		return self.block.light_level;
 	}
