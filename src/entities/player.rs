@@ -74,14 +74,16 @@ impl Entity for Player {
 		let mut new_body = self.body.copy();
 		if self.actions.left {new_body.move_at(Vec2::new(-15., 0.), time);}
 		if self.actions.right {new_body.move_at(Vec2::new(15., 0.), time);}
-		if self.actions.up && self.body.on_floor {
+		if self.actions.up {new_body.move_at(Vec2::new(0., -15.), time);}
+		if self.actions.down {new_body.move_at(Vec2::new(0., 15.), time);}
+		/*if self.actions.up && self.body.on_floor {
 			new_body.speed = Vec2::new(0., -30.);
-		}
+		}*/
 
-		new_body.accelerate(time);
-		new_body.r#move(time);
+		//new_body.accelerate(time);
+		//new_body.r#move(time);
 
-		let x_h_size = if new_body.pos.x < self.body.pos.x {- self.size.x} else {self.size.x} / 2.; 
+		/*let x_h_size = if new_body.pos.x < self.body.pos.x {- self.size.x} else {self.size.x} / 2.; 
 		let y_h_size = if new_body.pos.y < self.body.pos.y {- self.size.y} else {self.size.y} / 2.; 
 
 		let x_position = (new_body.pos.x + x_h_size).floor() as i32;
@@ -110,7 +112,7 @@ impl Entity for Player {
 			}
 		}
 
-		std::io::stdout().flush().expect("Hmmm......");
+		std::io::stdout().flush().expect("Hmmm......");*/
 
 		tasks.push(Task::Move(new_body));
 		if self.actions.attack {

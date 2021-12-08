@@ -1,8 +1,11 @@
 use std::collections::HashMap;
-use sdl2::render::Canvas;
-use sdl2::video::Window;
 use vek::Vec2;
 use rand::Rng;
+
+use sdl2::rect::Rect;
+use sdl2::pixels::Color;
+use sdl2::render::Canvas;
+use sdl2::video::Window;
 
 pub mod gen;
 
@@ -79,6 +82,11 @@ impl ChunkContent {
 						self.blocks[x as usize][y as usize].disp(canvas, block_pos_px.x, block_pos_px.y);
 					}
 				}
+				/*canvas.set_draw_color(Color::BLUE);
+				canvas.draw_rect(
+				Rect::new(top_left_px.x, top_left_px.y,
+				          BLOCK_SIZE * CHUNK_SIZE + 1, 1 + BLOCK_SIZE * CHUNK_SIZE)
+				).unwrap();*/
 			},
 			1 => {
 				for (_,entity) in self.entities.iter() {

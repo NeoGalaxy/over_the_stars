@@ -35,7 +35,6 @@ impl Vein {
 impl Structure for Vein {
 	fn gen_block(&mut self, _x: i32, _y: i32) -> (Option<usize>, Option<usize>) {
 		let mut rng = rand::thread_rng();
-		return (Some(self.vtype), self.wtype);
 		if rng.gen_bool(0.7) {
 			(Some(self.vtype), self.wtype)
 		} else {

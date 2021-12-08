@@ -65,23 +65,16 @@ impl TerrainGenerator {
 			return;
 		}
 		let mut rng = rand::thread_rng();
-		let nb_st = rng.gen_range(0, 2);
+		let nb_st = rng.gen_range(1, 2);
 		let mut st: Vec<Box<dyn Structure>> = Vec::with_capacity(nb_st);
-		//st.push(Box::new(Vein::new(Vec2::new(0,0), 5, Some(2), 10, 10)));
-		match (chunk_pos.x, chunk_pos.y) {
-			(0,0) => {
-				st.push(Box::new(Vein::new(Vec2::new(0,0), 5, Some(2), 6, 4)));
-			},
-			_ => ()
-		}
-		/*for _ in 0..nb_st {
+		for _ in 0..nb_st {
 			let x = rng.gen_range(0, CHUNK_SIZE as i32);
 			let y = rng.gen_range(0, CHUNK_SIZE as i32);
 			let b_type = rng.gen_range(3, 6);
-			let height = 3;
-			let width = 10;
-			st.push(Box::new(Vein::new(Vec2::new(x,y), b_type, Some(1), width, height)));
-		}*/
+			let height = rng.gen_range(2, 5);
+			let width = rng.gen_range(3, 9);
+			st.push(Box::new(Vein::new(Vec2::new(x,y) + chunk_pos * CHUNK_SIZE as i32, b_type, Some(1), width, height)));
+		}
 		self.chunks_structures.insert(*chunk_pos, st);
 	}
 }

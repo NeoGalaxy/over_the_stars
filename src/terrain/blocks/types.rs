@@ -30,7 +30,7 @@ pub const BLOCK_TYPES: [BlockType; 8] = [
 	BlockType{name: "stone", id: 1,
 		hp: Some(10),
 		hardness : 8,
-		light_level: 100,
+		light_level: -6,
 		is_solid: true, can_fall: false,
 		texture: Some(Color::RGB(136,136,136)),
 		outline_texture: Some(Color::RGB(105,105,105)),
