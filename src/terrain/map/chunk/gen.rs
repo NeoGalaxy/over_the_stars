@@ -23,9 +23,9 @@ impl TerrainGenerator {
 		}
 	}
 	pub fn build(&mut self, chunk_pos: &Vec2<i32>) -> ChunkContent {
-		/*if chunk_pos.y == 0 && (chunk_pos.x == -1 || chunk_pos.x == 0) {
+		if chunk_pos.y == -1 && (chunk_pos.x == -1 || chunk_pos.x == 0) {
 			return ChunkContent::full_block(0, 1);
-		}*/
+		}
 		let mut ret = ChunkContent::full_block(1, 1);
 		for chunk_y in (chunk_pos.y - 1)..=(chunk_pos.y + 1) {
 			for chunk_x in (chunk_pos.x - 1)..=(chunk_pos.x + 1) {

@@ -131,9 +131,9 @@ fn main() {
 		last = Instant::now();
 		if cnt == 10 {
 			//print!("{:3.4}", 10./intervall);
-			print!("{:3.4} {:3.4}", pos.x, pos.y);
-			print!("    ");
-			print!("\r");
+			//print!("{:3.4} {:3.4}", pos.x, pos.y);
+			//print!("    ");
+			//print!("\r");
 			intervall = 0.0;
 			cnt = 0;
 		}
