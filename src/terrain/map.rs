@@ -218,27 +218,27 @@ impl Map {
 		};
 		self.set_ch_block(&chunk_pos, &block_pos, id);
 	}
-	pub fn update_active(&mut self) {
+	pub fn tick(&mut self) {
 		self.frame += 1;
 		let mut active_entities: Vec<(u64, Vec2<i32>)> = Vec::new();
 		for tmp in self.entities.iter() {
 			active_entities.push((*tmp.0, *tmp.1))
 		}
 		
-		let time = {
+		/*let time = {
 			let t = self.last_update.elapsed().as_secs_f64();
 			//if t < 1. {return}
 			t//10.
-		};
+		};*/
 		self.last_update = Instant::now();
-		if time > 1. {
+		/*if time > 1. {
 			println!("skip");
 			return;
-		}
+		}*/
 		let mut all_tasks = Vec::new();
 		for (uid, chunk_pos) in active_entities {
 			all_tasks.push((
-				self.get_active_ch(chunk_pos).unwrap().entities[&uid].update(&self, time),
+				self.get_active_ch(chunk_pos).unwrap().entities[&uid].tick(&self),
 				uid,
 				chunk_pos
 			));

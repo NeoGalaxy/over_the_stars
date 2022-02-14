@@ -69,19 +69,17 @@ impl Entity for Player {
 		vRect::new(self.body.pos.x, self.body.pos.y, self.size.x as f64, self.size.y as f64)
 			.collides_with_rect(area)
 	}
-	fn update(&self, map: &Map, time: f64) -> Vec<Task>{
+	fn tick(&self, map: &Map) -> Vec<Task>{
 		let mut tasks = Vec::new();
 		let mut new_body = self.body.copy();
-		if self.actions.left {new_body.move_at(Vec2::new(-15., 0.), time);}
-		if self.actions.right {new_body.move_at(Vec2::new(15., 0.), time);}
-		//if self.actions.up {new_body.move_at(Vec2::new(0., -15.), time);}
-		//if self.actions.down {new_body.move_at(Vec2::new(0., 15.), time);}
+		if self.actions.left {new_body.move_at(Vec2::new(-15., 0.), 1./32.);}
+		if self.actions.right {new_body.move_at(Vec2::new(15., 0.), 1./32.);}
 		if self.actions.up && self.body.on_floor {
 			new_body.speed = Vec2::new(0., -30.);
 		}
 
-		new_body.accelerate(time);
-		new_body.r#move(time);
+		new_body.accelerate(1./32.);
+		new_body.r#move(1./32.);
 
 		let x_h_size = if new_body.pos.x < self.body.pos.x {- self.size.x} else {self.size.x} / 2.; 
 		let y_h_size = if new_body.pos.y < self.body.pos.y {- self.size.y} else {self.size.y} / 2.; 

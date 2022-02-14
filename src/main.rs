@@ -3,6 +3,7 @@ pub mod terrain;
 pub mod inventory;
 pub mod entities;
 
+use std::thread::sleep;
 use crate::Interaction::AimAt;
 use crate::terrain::blocks::BLOCK_SIZE;
 use std::collections::HashMap;
@@ -16,7 +17,7 @@ use sdl2::{
 use sdl2_sys::SDL_WindowFlags;
 use vek::vec::repr_c::vec2::Vec2;
 
-use std::time::{Instant};
+use std::time::{Duration, Instant};
 
 use terrain::{
 	map::{
@@ -32,6 +33,8 @@ fn update_mouse(mouse: &Vec2<f64>, map: &mut Map) {
 }
 
 fn main() {
+	let tick_duration = Duration::from_secs_f32(1./60.);
+	let mut last_tick = Instant::now();
 	let key_mapping : HashMap<Keycode, Interaction> =
 	[(Keycode::Z, Interaction::Up),
 	 (Keycode::S, Interaction::Down),
@@ -68,8 +71,6 @@ fn main() {
 	}
 	canvas.present();
 	let mut event_pump = sdl_context.event_pump().unwrap();
-	let mut last = Instant::now();
-	let mut intervall = 0.;
 	let mut cnt = 0;
 	'running: loop {
 		for event in event_pump.poll_iter() {
@@ -127,17 +128,14 @@ fn main() {
 			}
 		}
 		cnt += 1;
-		intervall += last.elapsed().as_secs_f64();
-		last = Instant::now();
 		if cnt == 10 {
 			//print!("{:3.4}", 10./intervall);
 			//print!("{:3.4} {:3.4}", pos.x, pos.y);
 			//print!("    ");
 			//print!("\r");
-			intervall = 0.0;
 			cnt = 0;
 		}
-		map.update_active();
+		map.tick();
 		let new_pos = map.see_entity(player_id).get_pos();
 		if let Some(mpos) = mouse_pos {
 			mouse_pos = Some(mpos + (new_pos - pos) * BLOCK_SIZE as f64);
@@ -148,5 +146,13 @@ fn main() {
 		canvas.clear();
 		map.disp(&mut canvas, &pos);
 		canvas.present();
+
+		let elapsed = last_tick.elapsed();
+		if elapsed < tick_duration {
+			sleep(tick_duration - elapsed);
+		} else {
+			println!("Too long: {:?}", elapsed - tick_duration);
+		}
+		last_tick = Instant::now();
 	}
 }

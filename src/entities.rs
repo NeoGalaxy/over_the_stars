@@ -90,7 +90,7 @@ pub trait Entity: Displayable {
 	fn move_body(&mut self, body: Body);
 	fn get_pos(&self) -> Vec2<f64>;
 	fn overlaps(&self, area: vRect<f64, f64>) -> bool;
-	fn update(&self, map: &Map, time: f64) -> Vec<Task>;
+	fn tick(&self, map: &Map) -> Vec<Task>;
 	fn control(&mut self, action: Action, start: bool);
 	fn get_light(&mut self) -> i32;
 	//fn activate(&mut self);
